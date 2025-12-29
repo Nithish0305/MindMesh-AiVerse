@@ -102,30 +102,80 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // Step 4: Parse trajectory JSON
+        // Step 4: Parse trajectory JSON (robust extraction)
         let trajectories: Trajectory[] = []
-        try {
-            // Extract JSON from response (LLM might wrap it in markdown)
-            const content = llmResponse.content
-            const jsonMatch = content.match(/\[[\s\S]*\]/)
+        const content = llmResponse.content?.trim() || ''
 
-            if (jsonMatch) {
-                trajectories = JSON.parse(jsonMatch[0])
-            } else {
-                // Fallback: try parsing entire content
-                trajectories = JSON.parse(content)
+        const tryParse = (str: string): Trajectory[] | null => {
+            try {
+                const parsed = JSON.parse(str)
+                if (Array.isArray(parsed)) return parsed as Trajectory[]
+                return null
+            } catch {
+                return null
             }
-
-            console.log('Trajectory API: Successfully parsed', trajectories.length, 'trajectories')
-        } catch (parseError) {
-            console.error('Trajectory API: Failed to parse JSON:', parseError)
-            // Return raw text if JSON parsing fails
-            return NextResponse.json({
-                trajectories: [],
-                rawResponse: llmResponse.content,
-                error: 'Failed to parse trajectory JSON, returning raw response'
-            })
         }
+
+        // Strategy 1: Extract JSON array inside code fences
+        const fenceMatch = content.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
+        if (fenceMatch) {
+            const parsed = tryParse(fenceMatch[1])
+            if (parsed) trajectories = parsed
+        }
+
+        // Strategy 2: From first '[' to matching last ']' (tolerate extra prose)
+        if (trajectories.length === 0) {
+            const first = content.indexOf('[')
+            const last = content.lastIndexOf(']')
+            if (first !== -1 && last !== -1 && last > first) {
+                const slice = content.substring(first, last + 1)
+                const parsed = tryParse(slice)
+                if (parsed) trajectories = parsed
+            }
+        }
+
+        // Strategy 3: Collect all object blocks and wrap into an array
+        if (trajectories.length === 0) {
+            const objs = content.match(/\{[\s\S]*?\}/g)
+            if (objs && objs.length > 0) {
+                const joined = `[${objs.join(',')}]`
+                const parsed = tryParse(joined)
+                if (parsed) trajectories = parsed
+            }
+        }
+
+        // Strategy 4: Light repair (remove trailing commas)
+        if (trajectories.length === 0) {
+            let repaired = content
+            repaired = repaired.replace(/,\s*\}/g, '}').replace(/,\s*\]/g, ']')
+            const fenceRepair = repaired.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
+            if (fenceRepair) {
+                const parsed = tryParse(fenceRepair[1])
+                if (parsed) trajectories = parsed
+            } else {
+                const first2 = repaired.indexOf('[')
+                const last2 = repaired.lastIndexOf(']')
+                if (first2 !== -1 && last2 !== -1 && last2 > first2) {
+                    const slice2 = repaired.substring(first2, last2 + 1)
+                    const parsed = tryParse(slice2)
+                    if (parsed) trajectories = parsed
+                }
+            }
+        }
+
+        if (trajectories.length === 0) {
+            console.error('Trajectory API: Failed to parse JSON after repair attempts')
+            return NextResponse.json(
+                {
+                    trajectories: [],
+                    rawResponse: llmResponse.content,
+                    error: 'Failed to parse trajectory JSON',
+                },
+                { status: 422 }
+            )
+        }
+
+        console.log('Trajectory API: Successfully parsed', trajectories.length, 'trajectories')
 
         // Step 5: Store trajectory analysis as memory
         // This enables future reflection on "paths suggested vs paths taken"

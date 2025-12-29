@@ -27,7 +27,7 @@ export default function SignInPage() {
                 throw error
             }
 
-            router.push('/mentor')
+            router.push('/dashboard')
             router.refresh()
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An error occurred')
