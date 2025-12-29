@@ -26,11 +26,14 @@ export interface Memory {
   user_id: string
   content: string
   metadata?: {
-    type?: 'mentor_advice' | 'user_input' | 'reflection' | 'trajectory'
+    type?: 'mentor_advice' | 'user_input' | 'reflection' | 'trajectory' | 'user_profile'
     context?: string
     // Trajectory-specific fields (Phase 4)
     decision_context?: string
     trajectories_count?: number
+    // Profile-specific fields (Phase 6)
+    profile_data?: unknown
+    confidence_score?: number
     [key: string]: unknown
   }
   created_at: string

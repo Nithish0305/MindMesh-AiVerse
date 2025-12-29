@@ -151,7 +151,7 @@ async function callOpenRouter(
       'X-Title': 'MindMesh',
     },
     body: JSON.stringify({
-      model: model || 'mistralai/mistral-7b-instruct:free',
+      model: model || 'google/gemini-2.0-flash-exp:free',
       messages,
     }),
   })
