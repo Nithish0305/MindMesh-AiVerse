@@ -1,65 +1,89 @@
 import { NextResponse } from 'next/server'
-import { callLLM } from '@/lib/ai/llm'
-import { createServerSupabaseClient } from '@/lib/supabaseServer'
-import { storeMemory } from '@/lib/mentor/memory'
+import { chatCompletion } from '@/lib/ai/openrouter'
+import { createClient as createServerSupabase } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
   try {
     const { resumeText } = await req.json()
 
-    if (!resumeText || typeof resumeText !== 'string') {
-      return NextResponse.json({ error: 'Resume text is required' }, { status: 400 })
+    if (typeof resumeText !== 'string' || resumeText.trim().length < 10) {
+      return NextResponse.json({ error: 'Valid resume text is required' }, { status: 400 })
     }
 
-    const prompt = `Parse the following resume text and extract structured information. Return a JSON object with these fields:\n- fullName: full name of the candidate\n- email: email address\n- phone: phone number\n- education: education summary (university, degree, field)\n- skills: array of technical skills\n- experience: professional experience summary\n\nResume Text:\n${resumeText}\n\nReturn ONLY valid JSON, no markdown or extra text.`
+    const prompt = `Parse the following resume text and extract structured information. Return a JSON object with these fields:
+- fullName: full name of the candidate
+- email: email address
+- phone: phone number
+- education: education summary (university, degree, field)
+- skills: array of technical skills
+- experience: professional experience summary
 
-    const llm = await callLLM([
-      { role: 'system', content: 'You are a strict JSON extractor. Return only valid JSON.' },
-      { role: 'user', content: prompt },
-    ])
+Resume Text:
+${resumeText}
 
-    if (llm.error) {
-      return NextResponse.json({ error: 'LLM error', details: llm.error }, { status: 500 })
+Return ONLY valid JSON, no markdown or extra text.`
+
+    const response = await chatCompletion(
+      [
+        { role: 'user', content: prompt }
+      ],
+      'mistralai/mistral-7b-instruct'
+    )
+
+    const message = response.choices[0].message
+    let parsedData: any = {}
+
+    const contentStr = typeof message.content === 'string' ? message.content : ''
+    if (!contentStr) {
+      return NextResponse.json({ error: 'Empty AI response' }, { status: 422 })
     }
 
-    let parsed: any = {}
     try {
-      // Try to extract JSON from content
-      const content = llm.content.trim()
-      const match = content.match(/\{[\s\S]*\}/)
-      parsed = JSON.parse(match ? match[0] : content)
-    } catch (err) {
-      parsed = { extractedText: llm.content, parseError: 'Invalid JSON returned by model' }
+      // Try to extract JSON from the response
+      const jsonMatch = contentStr.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        parsedData = JSON.parse(jsonMatch[0])
+      } else {
+        // Fallback: try to parse the entire content
+        parsedData = JSON.parse(contentStr)
+      }
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      // Return whatever we can extract
+      parsedData = {
+        extractedText: contentStr,
+        parseError: 'Could not parse AI response as JSON'
+      }
     }
 
-    // Try to persist parsed profile as a memory if the user is authenticated
+    // Attempt to persist for authenticated users
     let stored = false
     try {
-      const supabase = await createServerSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-
+      const supabase = await createServerSupabase()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      console.log('Auth check:', { hasUser: !!user, userError })
       if (user) {
-        const summary = `Resume parsed: name=${parsed.fullName ?? 'n/a'}, email=${parsed.email ?? 'n/a'}, skills=${Array.isArray(parsed.skills) ? parsed.skills.length : 0}`
-        const mem = await storeMemory(
-          user.id,
-          summary,
-          {
-            type: 'user_profile',
-            context: 'resume_parser',
-            profile_data: parsed,
-          },
-          supabase
-        )
-        stored = !!mem
+        const { error: insertError } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: user.id,
+            data: parsedData,
+            raw_text: resumeText
+          })
+        console.log('Insert result:', { insertError })
+        if (!insertError) stored = true
       }
-    } catch (persistErr) {
-      // Non-fatal: if we cannot store, just return parsed data
-      console.warn('Resume parser: could not persist to Supabase:', persistErr)
+    } catch (e) {
+      // swallow persist errors; return parsing result regardless
+      console.warn('Resume persist warning:', e)
     }
 
-    return NextResponse.json({ ...parsed, stored })
+    return NextResponse.json({ ...parsedData, stored })
   } catch (error) {
-    console.error('Parse resume API error:', error)
-    return NextResponse.json({ error: 'Failed to parse resume' }, { status: 500 })
+    console.error('Resume parsing error:', error)
+    return NextResponse.json(
+      { error: 'Failed to parse resume' },
+      { status: 500 }
+    )
   }
 }

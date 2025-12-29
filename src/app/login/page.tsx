@@ -8,46 +8,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2, UserPlus, Mail, Lock, User } from 'lucide-react'
+import { Loader2, LogIn, Mail, Lock } from 'lucide-react'
 
-export default function SignupPage() {
+export default function LoginPage() {
     const router = useRouter()
-    const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-    const [confirmPassword, setConfirmPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [success, setSuccess] = useState(false)
     const supabase = createClient()
 
-    const handleSignup = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
-
-        // Validation
-        if (password !== confirmPassword) {
-            setError('Passwords do not match')
-            return
-        }
-
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters')
-            return
-        }
-
         setLoading(true)
 
         try {
-            const { data, error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
-                options: {
-                    data: {
-                        full_name: fullName,
-                    },
-                    emailRedirectTo: `${window.location.origin}/auth/callback`
-                }
             })
 
             if (error) {
@@ -57,17 +36,8 @@ export default function SignupPage() {
             }
 
             if (data.user) {
-                // Check if email confirmation is required
-                if (data.user.identities && data.user.identities.length === 0) {
-                    setError('An account with this email already exists')
-                    setLoading(false)
-                    return
-                }
-
-                setSuccess(true)
-                setTimeout(() => {
-                    router.push('/onboarding')
-                }, 2000)
+                router.push('/dashboard')
+                router.refresh()
             }
         } catch (err) {
             setError('An unexpected error occurred')
@@ -75,7 +45,7 @@ export default function SignupPage() {
         }
     }
 
-    const handleGoogleSignup = async () => {
+    const handleGoogleLogin = async () => {
         setLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
@@ -89,7 +59,7 @@ export default function SignupPage() {
         }
     }
 
-    const handleGithubSignup = async () => {
+    const handleGithubLogin = async () => {
         setLoading(true)
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'github',
@@ -103,25 +73,6 @@ export default function SignupPage() {
         }
     }
 
-    if (success) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-                <Card className="w-full max-w-md text-center p-8 shadow-xl border-primary/10">
-                    <div className="mb-4">
-                        <div className="h-16 w-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <UserPlus className="h-8 w-8 text-green-600 dark:text-green-400" />
-                        </div>
-                        <h2 className="text-2xl font-bold">Welcome to MindMesh!</h2>
-                        <p className="text-muted-foreground mt-2">
-                            Your account has been created successfully. Redirecting to onboarding...
-                        </p>
-                    </div>
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                </Card>
-            </div>
-        )
-    }
-
     return (
         <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
             <div className="w-full max-w-md space-y-6">
@@ -132,42 +83,25 @@ export default function SignupPage() {
                             MindMesh
                         </h1>
                     </Link>
-                    <p className="text-muted-foreground mt-2">Start your career transformation journey</p>
+                    <p className="text-muted-foreground mt-2">Welcome back to your career journey</p>
                 </div>
 
-                {/* Signup Card */}
+                {/* Login Card */}
                 <Card className="shadow-xl border-primary/10">
                     <CardHeader>
                         <CardTitle className="text-2xl flex items-center gap-2">
-                            <UserPlus className="h-6 w-6 text-primary" />
-                            Create Account
+                            <LogIn className="h-6 w-6 text-primary" />
+                            Sign In
                         </CardTitle>
-                        <CardDescription>Sign up to unlock AI-powered career coaching</CardDescription>
+                        <CardDescription>Enter your credentials to access your account</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleSignup} className="space-y-4">
+                        <form onSubmit={handleLogin} className="space-y-4">
                             {error && (
                                 <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
                                     {error}
                                 </div>
                             )}
-
-                            <div className="space-y-2">
-                                <Label htmlFor="fullName" className="flex items-center gap-2">
-                                    <User className="h-4 w-4" />
-                                    Full Name
-                                </Label>
-                                <Input
-                                    id="fullName"
-                                    type="text"
-                                    placeholder="John Doe"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                    required
-                                    disabled={loading}
-                                    className="h-11"
-                                />
-                            </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="email" className="flex items-center gap-2">
@@ -194,7 +128,7 @@ export default function SignupPage() {
                                 <Input
                                     id="password"
                                     type="password"
-                                    placeholder="At least 6 characters"
+                                    placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -203,21 +137,13 @@ export default function SignupPage() {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="confirmPassword" className="flex items-center gap-2">
-                                    <Lock className="h-4 w-4" />
-                                    Confirm Password
-                                </Label>
-                                <Input
-                                    id="confirmPassword"
-                                    type="password"
-                                    placeholder="Re-enter password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    required
-                                    disabled={loading}
-                                    className="h-11"
-                                />
+                            <div className="flex items-center justify-between text-sm">
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-primary hover:underline"
+                                >
+                                    Forgot password?
+                                </Link>
                             </div>
 
                             <Button
@@ -228,19 +154,12 @@ export default function SignupPage() {
                                 {loading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Creating account...
+                                        Signing in...
                                     </>
                                 ) : (
-                                    'Create Account'
+                                    'Sign In'
                                 )}
                             </Button>
-
-                            <p className="text-xs text-muted-foreground text-center">
-                                By signing up, you agree to our{' '}
-                                <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link>
-                                {' '}and{' '}
-                                <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
-                            </p>
                         </form>
 
                         {/* Divider */}
@@ -249,7 +168,7 @@ export default function SignupPage() {
                                 <div className="w-full border-t"></div>
                             </div>
                             <div className="relative flex justify-center text-xs uppercase">
-                                <span className="bg-card px-2 text-muted-foreground">Or sign up with</span>
+                                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
                             </div>
                         </div>
 
@@ -258,7 +177,7 @@ export default function SignupPage() {
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={handleGoogleSignup}
+                                onClick={handleGoogleLogin}
                                 disabled={loading}
                                 className="h-11"
                             >
@@ -273,7 +192,7 @@ export default function SignupPage() {
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={handleGithubSignup}
+                                onClick={handleGithubLogin}
                                 disabled={loading}
                                 className="h-11"
                             >
@@ -286,9 +205,9 @@ export default function SignupPage() {
                     </CardContent>
                     <CardFooter className="flex justify-center border-t pt-6">
                         <p className="text-sm text-muted-foreground">
-                            Already have an account?{' '}
-                            <Link href="/login" className="text-primary font-medium hover:underline">
-                                Sign in
+                            Don't have an account?{' '}
+                            <Link href="/signup" className="text-primary font-medium hover:underline">
+                                Sign up
                             </Link>
                         </p>
                     </CardFooter>

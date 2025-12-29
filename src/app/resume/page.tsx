@@ -3,17 +3,11 @@
 import { useState } from 'react'
 import AppLayout from '@/components/AppLayout'
 
-// Lazy import to avoid SSR issues with pdfjs-dist
-let pdfjsLib: any
-if (typeof window !== 'undefined') {
-  // Dynamic import on client
-  import('pdfjs-dist').then(mod => {
-    pdfjsLib = mod as any
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-  }).catch(() => {})
-}
-
 async function extractTextFromPDF(file: File): Promise<string> {
+  // Dynamic import to avoid SSR issues
+  const pdfjsLib = await import('pdfjs-dist')
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+  
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
@@ -37,10 +31,19 @@ export default function ResumePage() {
     try {
       setLoading(true)
       setError(null)
+      console.log('Starting PDF extraction for:', file.name)
       const text = await extractTextFromPDF(file)
+      console.log('Extracted text length:', text.length)
+      console.log('Extracted text preview:', text.substring(0, 200))
+      
+      if (!text || text.trim().length < 10) {
+        throw new Error('No text extracted from PDF. The file might be scanned or image-based.')
+      }
+      
       await parse(text)
     } catch (e) {
-      setError('Failed to process PDF. Try pasting text instead.')
+      console.error('PDF processing error:', e)
+      setError(e instanceof Error ? e.message : 'Failed to process PDF. Try pasting text instead.')
     } finally {
       setLoading(false)
     }
@@ -66,6 +69,12 @@ export default function ResumePage() {
       <div style={{ maxWidth: 800 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>Resume Parser</h1>
         <p style={{ color: '#6b7280', marginBottom: 20 }}>Upload a PDF or paste resume text. We'll extract structured information.</p>
+        
+        {result && !result.stored && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fef3c7', color: '#92400e', borderRadius: 6 }}>
+            Sign in to save your parsed resume to your profile.
+          </div>
+        )}
 
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: '1fr 1fr' }}>
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16 }}>

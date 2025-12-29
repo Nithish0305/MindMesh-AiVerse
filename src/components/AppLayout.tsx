@@ -20,19 +20,7 @@ export default function AppLayout({ children }: LayoutProps) {
             setUser(user)
         }
         getUser()
-
-        // Listen for auth state changes (sign in, sign out, token refresh)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null)
-            if (_event === 'SIGNED_OUT') {
-                router.push('/signin')
-            }
-        })
-
-        return () => {
-            subscription.unsubscribe()
-        }
-    }, [router])
+    }, [])
 
     const handleSignOut = async () => {
         await supabase.auth.signOut()
@@ -45,7 +33,6 @@ export default function AppLayout({ children }: LayoutProps) {
         { label: '🎯 Goals', path: '/explore', icon: '🎯' },
         { label: '⚡ Skills', path: '/skills', icon: '⚡' },
         { label: '📄 Resume', path: '/resume', icon: '📄' },
-        { label: '📚 My Resumes', path: '/resumes', icon: '📚' },
         { label: '🤝 Network', path: '/network', icon: '🤝' },
         { label: '💼 Jobs', path: '/jobs', icon: '💼' },
         { label: '🎤 Interview', path: '/interview', icon: '🎤' },
