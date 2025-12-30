@@ -11,7 +11,7 @@ const openrouter = new OpenAI({
     dangerouslyAllowBrowser: true // Only if needed client side, but we are using it server side mainly
 })
 
-export async function chatCompletion(messages: any[], model: string = 'mistralai/mistral-7b-instruct') {
+export async function chatCompletion(messages: any[], model: string = 'mistralai/mistral-7b-instruct', options: any = {}) {
     // If no key is present, return mock response to prevent crash in demo
     if (!process.env.OPENROUTER_API_KEY) {
         return {
@@ -29,5 +29,8 @@ export async function chatCompletion(messages: any[], model: string = 'mistralai
     return await openrouter.chat.completions.create({
         model: model,
         messages: messages,
+        max_tokens: options.max_tokens || 1000,
+        temperature: options.temperature || 0.7,
+        ...options,
     })
 }

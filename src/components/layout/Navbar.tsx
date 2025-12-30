@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { LayoutDashboard, Briefcase, Map as MapIcon, Users, BarChart, LogOut } from 'lucide-react'
+import { LayoutDashboard, Briefcase, Map as MapIcon, Users, BarChart, LogOut, TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useState } from 'react'
 
@@ -20,6 +20,7 @@ export function Navbar() {
         { name: 'Jobs', href: '/jobs', icon: Briefcase },
         { name: 'Plan', href: '/plan', icon: BarChart },
         { name: 'Interview', href: '/interview', icon: Users },
+        { name: 'Analysis', href: '/analysis', icon: TrendingUp },
         { name: 'Map', href: '/map', icon: MapIcon },
         { name: 'Network', href: '/network', icon: Users },
         { name: 'History', href: '/history', icon: LayoutDashboard },

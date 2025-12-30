@@ -36,7 +36,8 @@ export default function AppLayout({ children }: LayoutProps) {
         { label: '🤝 Network', path: '/network', icon: '🤝' },
         { label: '💼 Jobs', path: '/jobs', icon: '💼' },
         { label: '🎤 Interview', path: '/interview', icon: '🎤' },
-        { label: '📊 Trajectory', path: '/trajectory', icon: '📊' },
+        { label: '� Analysis', path: '/analysis', icon: '📈' },
+        { label: '�📊 Trajectory', path: '/trajectory', icon: '📊' },
         { label: '💬 Mentor', path: '/mentor', icon: '💬' },
     ]
 
