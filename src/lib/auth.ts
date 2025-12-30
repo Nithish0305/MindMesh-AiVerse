@@ -4,10 +4,21 @@ import { redirect } from 'next/navigation'
 export async function checkAuth() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
         redirect('/login')
     }
-    
+
     return user
+}
+
+export async function getAuthenticatedUserId(): Promise<string> {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        throw new Error("User not authenticated")
+    }
+
+    return user.id
 }
