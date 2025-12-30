@@ -10,24 +10,49 @@ export default function DashboardPage() {
     const router = useRouter()
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const [notionConnected, setNotionConnected] = useState(false)
+    const [roadmapPrompt, setRoadmapPrompt] = useState('')
+
+
     const notionAuthUrl =
         "https://api.notion.com/v1/oauth/authorize" +
         "?client_id=" + process.env.NEXT_PUBLIC_NOTION_CLIENT_ID +
         "&response_type=code" +
-        "&redirect_uri=" + process.env.NEXT_PUBLIC_NOTION_REDIRECT_URI;
+        "&redirect_uri=" + process.env.NEXT_PUBLIC_NOTION_REDIRECT_URI
 
     useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                router.push('/signin')
+        const init = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+
+            if (!session?.user) {
+                setLoading(false)
                 return
             }
-            setUser(user)
+
+            setUser(session.user)
             setLoading(false)
+
+
+            // Check Notion connection status
+            try {
+                const res = await fetch('/api/notion/status')
+                if (res.ok) {
+                    const data = await res.json()
+                    setNotionConnected(!!data.connected)
+                }
+            } catch (e) {
+                console.error('Notion status check failed')
+            }
+
         }
-        getUser()
+
+        init()
     }, [router])
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/signin')
+        }
+    }, [loading, user, router])
 
     if (loading) {
         return (
@@ -62,51 +87,94 @@ export default function DashboardPage() {
                     <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px' }}>
                         🚀 Get Started
                     </h2>
-                    {/* Temporary Notion OAuth Button */}
+
+                    {/* Notion Connection */}
                     <div style={{ marginBottom: '20px' }}>
-                        <a href={notionAuthUrl}>
-                            <button
+                        {notionConnected ? (
+                            <div
                                 style={{
                                     padding: '10px 16px',
-                                    backgroundColor: '#111827',
-                                    color: 'white',
-                                    border: 'none',
+                                    backgroundColor: '#ecfdf5',
+                                    color: '#065f46',
                                     borderRadius: '6px',
                                     fontSize: '14px',
-                                    cursor: 'pointer',
+                                    fontWeight: '500',
+                                    display: 'inline-block',
                                 }}
                             >
-                                Connect Notion (Temporary)
-                            </button>
-                        </a>
+                                ✅ Notion Connected
+                            </div>
+                        ) : (
+                            <a href={notionAuthUrl}>
+                                <button
+                                    style={{
+                                        padding: '10px 16px',
+                                        backgroundColor: '#111827',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        fontSize: '14px',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Connect Notion
+                                </button>
+                            </a>
+                        )}
                     </div>
+
+                    {/* Generate Roadmap */}
+                    {/* Roadmap Goal Input */}
+                    <div style={{ marginBottom: '12px' }}>
+                        <textarea
+                            placeholder="Example: I want to become a Data Scientist in 6 months and focus on ML & Python"
+                            value={roadmapPrompt}
+                            onChange={(e) => setRoadmapPrompt(e.target.value)}
+                            rows={3}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                borderRadius: '6px',
+                                border: '1px solid #e5e7eb',
+                                fontSize: '14px',
+                                resize: 'vertical',
+                            }}
+                        />
+                    </div>
+
                     <div style={{ marginBottom: '20px' }}>
                         <button
+                            disabled={!notionConnected}
                             onClick={async () => {
-                                const res = await fetch("/api/notion/create-roadmap", {
-                                    method: "POST",
-                                });
+                                const res = await fetch('/api/notion/create-roadmap', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        userPrompt: roadmapPrompt,
+                                    }),
+                                })
+
 
                                 if (res.ok) {
-                                    alert("Career roadmap created in Notion!");
+                                    alert('Career roadmap created in Notion!')
                                 } else {
-                                    alert("Failed to create roadmap");
+                                    alert('Please connect Notion first')
                                 }
                             }}
                             style={{
                                 padding: '10px 16px',
-                                backgroundColor: '#2563eb',
+                                backgroundColor: notionConnected ? '#2563eb' : '#9ca3af',
                                 color: 'white',
                                 border: 'none',
                                 borderRadius: '6px',
                                 fontSize: '14px',
-                                cursor: 'pointer',
+                                cursor: notionConnected ? 'pointer' : 'not-allowed',
                             }}
                         >
                             Generate Career Roadmap
+
                         </button>
                     </div>
-
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <ActionCard
@@ -151,6 +219,8 @@ export default function DashboardPage() {
     )
 }
 
+/* ---------- UI COMPONENTS ---------- */
+
 function StatCard({ title, value, color }: { title: string; value: string; color: string }) {
     return (
         <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -192,7 +262,6 @@ function ActionCard({ title, description, action, onClick, disabled }: {
                     borderRadius: '4px',
                     fontSize: '14px',
                     cursor: disabled ? 'not-allowed' : 'pointer',
-                    whiteSpace: 'nowrap',
                 }}
             >
                 {action}
@@ -223,7 +292,7 @@ function AgentBadge({ name, status }: { name: string; status: 'ready' | 'waiting
                 margin: '0 auto 8px',
             }} />
             <p style={{ fontSize: '14px', fontWeight: '500' }}>{name}</p>
-            <p style={{ fontSize: '12px', color: '#6b7280', textTransform: 'capitalize' }}>{status}</p>
+            <p style={{ fontSize: '12px', color: '#6b7280' }}>{status}</p>
         </div>
     )
 }

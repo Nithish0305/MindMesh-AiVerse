@@ -21,12 +21,13 @@ function loadEnv() {
 
 loadEnv();
 
+
 const PROMPT_FILE = 'src/lib/mentor/onboarding-prompt.ts';
 
 async function testExtraction() {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-        console.error('No OPENROUTER_API_KEY found');
+        console.error('No GROQ_API_KEY found');
         return;
     }
 
@@ -62,24 +63,27 @@ CAREER GOALS:
     ];
 
     try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: 'meta-llama/llama-3-8b-instruct:free',
+                model: process.env.PLANNING_MODEL || 'llama-3.1-70b-versatile',
                 messages,
                 response_format: { type: 'json_object' }
             }),
         });
 
-        const data = await response.json();
-        if (data.error) {
-            console.error('OpenRouter Error:', JSON.stringify(data.error, null, 2));
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Groq API Error:', errorText);
             return;
         }
+
+        const data = await response.json();
+
         if (!data.choices) {
             console.error('Unexpected Response Structure:', JSON.stringify(data, null, 2));
             return;

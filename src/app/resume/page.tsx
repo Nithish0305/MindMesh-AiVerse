@@ -6,8 +6,8 @@ import AppLayout from '@/components/AppLayout'
 async function extractTextFromPDF(file: File): Promise<string> {
   // Dynamic import to avoid SSR issues
   const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
-  
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
@@ -35,11 +35,11 @@ export default function ResumePage() {
       const text = await extractTextFromPDF(file)
       console.log('Extracted text length:', text.length)
       console.log('Extracted text preview:', text.substring(0, 200))
-      
+
       if (!text || text.trim().length < 10) {
         throw new Error('No text extracted from PDF. The file might be scanned or image-based.')
       }
-      
+
       await parse(text)
     } catch (e) {
       console.error('PDF processing error:', e)
@@ -69,7 +69,7 @@ export default function ResumePage() {
       <div style={{ maxWidth: 800 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>Resume Parser</h1>
         <p style={{ color: '#6b7280', marginBottom: 20 }}>Upload a PDF or paste resume text. We'll extract structured information.</p>
-        
+
         {result && !result.stored && (
           <div style={{ marginBottom: 16, padding: 12, background: '#fef3c7', color: '#92400e', borderRadius: 6 }}>
             Sign in to save your parsed resume to your profile.

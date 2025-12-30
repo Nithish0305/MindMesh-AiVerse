@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { chatCompletion } from '@/lib/ai/openrouter'
+import { callLLM } from '@/lib/ai/llm'
 import { createClient as createServerSupabase } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
@@ -9,6 +9,8 @@ export async function POST(req: Request) {
     if (typeof resumeText !== 'string' || resumeText.trim().length < 10) {
       return NextResponse.json({ error: 'Valid resume text is required' }, { status: 400 })
     }
+    console.log('API received resume text length:', resumeText.length)
+    console.log('API received resume text preview:', resumeText.substring(0, 100))
 
     const prompt = `Parse the following resume text and extract structured information. Return a JSON object with these fields:
 - fullName: full name of the candidate
@@ -23,17 +25,24 @@ ${resumeText}
 
 Return ONLY valid JSON, no markdown or extra text.`
 
-    const response = await chatCompletion(
+
+    const response = await callLLM(
+      "planning",
       [
         { role: 'user', content: prompt }
-      ],
-      'mistralai/mistral-7b-instruct'
+      ]
     )
 
-    const message = response.choices[0].message
+    if (response.error) {
+      throw new Error(response.error)
+    }
+
     let parsedData: any = {}
 
-    const contentStr = typeof message.content === 'string' ? message.content : ''
+    const contentStr = response.content || ''
+    console.log('AI response content length:', contentStr.length)
+    console.log('AI response preview:', contentStr.substring(0, 100))
+
     if (!contentStr) {
       return NextResponse.json({ error: 'Empty AI response' }, { status: 422 })
     }

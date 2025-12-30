@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getCurrentUserId } from "@/lib/auth";
+import { getServerUser } from "@/lib/supabaseServer";
 
 const supabase = createClient(
     process.env.SUPABASE_URL!,
@@ -8,6 +8,18 @@ const supabase = createClient(
 );
 
 export async function GET(req: Request) {
+    // 1️⃣ Get logged-in Supabase user
+    const user = await getServerUser();
+
+    if (!user) {
+        return NextResponse.redirect(
+            new URL("/signin", req.url)
+        );
+    }
+
+    const userId = user.id;
+
+    // 2️⃣ Read authorization code from Notion
     const { searchParams } = new URL(req.url);
     const code = searchParams.get("code");
 
@@ -18,7 +30,7 @@ export async function GET(req: Request) {
         );
     }
 
-    // Exchange authorization code for access token
+    // 3️⃣ Exchange code for Notion access token
     const tokenRes = await fetch("https://api.notion.com/v1/oauth/token", {
         method: "POST",
         headers: {
@@ -27,13 +39,13 @@ export async function GET(req: Request) {
                 Buffer.from(
                     `${process.env.NOTION_CLIENT_ID}:${process.env.NOTION_CLIENT_SECRET}`
                 ).toString("base64"),
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         },
         body: JSON.stringify({
             grant_type: "authorization_code",
             code,
-            redirect_uri: process.env.NOTION_REDIRECT_URI
-        })
+            redirect_uri: process.env.NOTION_REDIRECT_URI,
+        }),
     });
 
     const data = await tokenRes.json();
@@ -45,19 +57,22 @@ export async function GET(req: Request) {
         );
     }
 
-    // Get current (temporary) user
-    const userId = await getCurrentUserId();
-
-    // Store token in Supabase
-    await supabase.from("user_integrations").upsert({
+    // 4️⃣ Store token mapped to THIS user
+    const { error: upsertError } = await supabase.from("user_integrations").upsert({
         user_id: userId,
         provider: "notion",
         access_token: data.access_token,
-        workspace_id: data.workspace_id
+        workspace_id: data.workspace_id,
     });
 
-    // Redirect back to frontend
+    if (upsertError) {
+        console.error('Callback: Upsert failed:', upsertError);
+    } else {
+        console.log('Callback: Upsert successful for user:', userId);
+    }
+
+    // 5️⃣ Redirect cleanly back to dashboard
     return NextResponse.redirect(
-        "http://localhost:3000/dashboard?notion=connected"
+        new URL("/dashboard?notion=connected", req.url)
     );
 }
