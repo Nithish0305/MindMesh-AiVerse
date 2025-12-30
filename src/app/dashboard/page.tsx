@@ -10,6 +10,11 @@ export default function DashboardPage() {
     const router = useRouter()
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const notionAuthUrl =
+        "https://api.notion.com/v1/oauth/authorize" +
+        "?client_id=" + process.env.NEXT_PUBLIC_NOTION_CLIENT_ID +
+        "&response_type=code" +
+        "&redirect_uri=" + process.env.NEXT_PUBLIC_NOTION_REDIRECT_URI;
 
     useEffect(() => {
         const getUser = async () => {
@@ -57,6 +62,52 @@ export default function DashboardPage() {
                     <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px' }}>
                         🚀 Get Started
                     </h2>
+                    {/* Temporary Notion OAuth Button */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <a href={notionAuthUrl}>
+                            <button
+                                style={{
+                                    padding: '10px 16px',
+                                    backgroundColor: '#111827',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Connect Notion (Temporary)
+                            </button>
+                        </a>
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <button
+                            onClick={async () => {
+                                const res = await fetch("/api/notion/create-roadmap", {
+                                    method: "POST",
+                                });
+
+                                if (res.ok) {
+                                    alert("Career roadmap created in Notion!");
+                                } else {
+                                    alert("Failed to create roadmap");
+                                }
+                            }}
+                            style={{
+                                padding: '10px 16px',
+                                backgroundColor: '#2563eb',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Generate Career Roadmap
+                        </button>
+                    </div>
+
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <ActionCard
                             title="Complete Your Profile"
